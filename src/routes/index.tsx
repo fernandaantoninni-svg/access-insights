@@ -1,247 +1,332 @@
-import { createFileRoute, Link } from "@tanstack/react-router";
-import { SiteNav } from "@/components/SiteNav";
+import { createFileRoute } from "@tanstack/react-router";
+import { useEffect, useMemo, useState } from "react";
+import {
+  Apple,
+  Recycle,
+  Wine,
+  Trash2,
+  Newspaper,
+  PackageOpen,
+  CalendarOff,
+  AlertTriangle,
+  Bell,
+  Check,
+  Info,
+} from "lucide-react";
 
 export const Route = createFileRoute("/")({
-  component: Index,
+  component: PulitaApp,
+  head: () => ({
+    meta: [
+      { title: "PULITA — Calendário da recolha de lixo" },
+      {
+        name: "description",
+        content:
+          "PULITA: saiba todos os dias que tipo de lixo colocar fora. Lembretes, cores por dia e aviso de multa por separação errada.",
+      },
+    ],
+  }),
 });
 
-const hypotheses = [
-  {
-    code: "H-01",
-    title: "Cadastro lento na chegada",
-    body: "Recepcionista digita nome, CPF, empresa e destino para cada visitante. Em horários de pico, fila passa de 8 pessoas e leva mais de 5 minutos.",
-    signal: "alto",
-  },
-  {
-    code: "H-02",
-    title: "Falta de pré-aviso do morador",
-    body: "Funcionários não avisam que esperam visita. Portaria liga para confirmar, visita espera no saguão.",
-    signal: "alto",
-  },
-  {
-    code: "H-03",
-    title: "Prestadores e entregas competem com visitas",
-    body: "Mesmo balcão atende correios, técnicos e clientes. Não há triagem por tipo de acesso.",
-    signal: "médio",
-  },
-  {
-    code: "H-04",
-    title: "Sem histórico confiável",
-    body: "Caderno em papel ou planilha solta. Impossível auditar quem entrou após incidentes.",
-    signal: "médio",
-  },
+type DayKey = "seg" | "ter" | "qua" | "qui" | "sex" | "sab" | "dom";
+
+type Fraction = {
+  label: string;
+  icon: React.ComponentType<{ className?: string }>;
+};
+
+type DayInfo = {
+  key: DayKey;
+  short: string;
+  long: string;
+  fractions: Fraction[];
+  color: string; // hex
+  ink: "light" | "dark";
+  note?: string;
+};
+
+const ORGANICO: Fraction = { label: "Orgânico", icon: Apple };
+const PLASTICO_METAL: Fraction = { label: "Plástico / Metal", icon: Recycle };
+const VIDRO: Fraction = { label: "Vidro", icon: Wine };
+const INDIFERENCIADO: Fraction = { label: "Indiferenciado", icon: Trash2 };
+const PAPEL: Fraction = { label: "Papel / Cartão", icon: Newspaper };
+const PLASTICO: Fraction = { label: "Plástico", icon: PackageOpen };
+
+const SCHEDULE: DayInfo[] = [
+  { key: "seg", short: "SEG", long: "Segunda-feira", fractions: [ORGANICO], color: "#2F9E5E", ink: "light" },
+  { key: "ter", short: "TER", long: "Terça-feira", fractions: [PLASTICO_METAL], color: "#F2C24B", ink: "dark" },
+  { key: "qua", short: "QUA", long: "Quarta-feira", fractions: [VIDRO, ORGANICO], color: "#2E7BD6", ink: "light" },
+  { key: "qui", short: "QUI", long: "Quinta-feira", fractions: [INDIFERENCIADO], color: "#5C5C5C", ink: "light" },
+  { key: "sex", short: "SEX", long: "Sexta-feira", fractions: [PAPEL, ORGANICO], color: "#3FB0C9", ink: "light" },
+  { key: "sab", short: "SÁB", long: "Sábado", fractions: [PLASTICO], color: "#E8843C", ink: "light" },
+  { key: "dom", short: "DOM", long: "Domingo", fractions: [], color: "#1E1E1E", ink: "light", note: "Não passa o camião" },
 ];
 
-const research = [
-  { label: "Tempo médio por visitante", value: "3m 42s", note: "observação em 3 prédios" },
-  { label: "Pico de fila relatado", value: "11", note: "pessoas às 9h e 14h" },
-  { label: "Visitas sem pré-aviso", value: "68%", note: "amostra de 240 entradas" },
-  { label: "Recepcionistas/turno", value: "1–2", note: "para 40+ empresas" },
-];
+// JS Date.getDay(): 0=Sunday … 6=Saturday → map to our array order (seg..dom)
+function todayIndex(): number {
+  const d = new Date().getDay();
+  // Sun=0 → 6; Mon=1 → 0; … Sat=6 → 5
+  return d === 0 ? 6 : d - 1;
+}
 
-function Index() {
+function PulitaApp() {
+  const [now, setNow] = useState(() => new Date());
+  const [reminder, setReminder] = useState<boolean>(false);
+
+  useEffect(() => {
+    const t = setInterval(() => setNow(new Date()), 60_000);
+    try {
+      setReminder(localStorage.getItem("pulita.reminder") === "1");
+    } catch {}
+    return () => clearInterval(t);
+  }, []);
+
+  const idx = useMemo(() => todayIndex(), [now]);
+  const today = SCHEDULE[idx];
+  const tomorrow = SCHEDULE[(idx + 1) % 7];
+
+  const toggleReminder = () => {
+    const next = !reminder;
+    setReminder(next);
+    try {
+      localStorage.setItem("pulita.reminder", next ? "1" : "0");
+    } catch {}
+  };
+
   return (
-    <div className="min-h-screen">
-      <SiteNav />
-
-      {/* HERO */}
-      <section className="relative overflow-hidden border-b border-border">
-        <div className="absolute inset-0 grid-bg opacity-40" />
-        <div className="relative mx-auto grid max-w-7xl gap-12 px-6 py-20 lg:grid-cols-12 lg:py-28">
-          <div className="lg:col-span-7">
-            <div className="inline-flex items-center gap-2 border border-border bg-surface/60 px-3 py-1 font-mono text-[10px] uppercase tracking-[0.25em] text-muted-foreground">
-              <span className="h-1.5 w-1.5 bg-primary" /> Caso de discovery · UX research
+    <div className="min-h-screen pb-16" style={{ background: "#0F1411" }}>
+      {/* Top bar */}
+      <header className="sticky top-0 z-30 border-b border-white/5 bg-[#0F1411]/90 backdrop-blur">
+        <div className="mx-auto flex max-w-md items-center justify-between px-5 py-4">
+          <div className="flex items-center gap-2">
+            <div
+              className="flex h-9 w-9 items-center justify-center rounded-xl"
+              style={{ background: "#2F9E5E" }}
+              aria-hidden
+            >
+              <Recycle className="h-5 w-5 text-white" />
             </div>
-            <h1 className="mt-6 font-display text-5xl font-bold leading-[0.95] tracking-tight md:text-7xl">
-              A fila na portaria <span className="text-primary">não é</span> o problema.
-            </h1>
-            <p className="mt-6 max-w-xl text-base text-muted-foreground md:text-lg">
-              É o sintoma. Prédios comerciais relatam dificuldade em gerenciar o acesso físico — mas
-              não sabem nomear o quê. Este é o caderno de campo da investigação e o protótipo da
-              solução que está sendo testada com recepcionistas reais.
-            </p>
-            <div className="mt-8 flex flex-wrap items-center gap-3">
-              <Link to="/portaria" className="group inline-flex items-center gap-3 bg-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90">
-                Testar protótipo da portaria
-                <span className="transition-transform group-hover:translate-x-1">→</span>
-              </Link>
-              <Link to="/pesquisa" className="inline-flex items-center gap-3 border border-border bg-surface px-5 py-3 font-mono text-xs font-semibold uppercase tracking-widest text-foreground hover:border-primary hover:text-primary">
-                Contribuir com sua portaria
-              </Link>
-            </div>
-          </div>
-
-          <div className="lg:col-span-5">
-            <div className="panel relative p-1">
-              <div className="flex items-center justify-between border-b border-border px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                <span>monitor · saguão térreo</span>
-                <span className="pulse-dot">ao vivo</span>
-              </div>
-              <div className="space-y-3 p-5">
-                {[
-                  { name: "Mariana Souza", co: "Onyx Capital · 14º", st: "aguardando", t: "00:42" },
-                  { name: "Diego Albuquerque", co: "Correios", st: "fila", t: "01:18" },
-                  { name: "Patrícia Lima", co: "JLL · 09º", st: "fila", t: "02:55" },
-                  { name: "Rafael Tonin", co: "Visita pessoal", st: "sem cadastro", t: "04:12" },
-                ].map((p, i) => (
-                  <div key={i} className="flex items-center justify-between border-b border-border/60 pb-3 last:border-0">
-                    <div>
-                      <div className="font-medium">{p.name}</div>
-                      <div className="font-mono text-[11px] uppercase tracking-wider text-muted-foreground">{p.co}</div>
-                    </div>
-                    <div className="text-right">
-                      <div className={`font-mono text-[10px] uppercase tracking-widest ${p.st === "sem cadastro" ? "text-destructive" : p.st === "fila" ? "text-warning" : "text-muted-foreground"}`}>{p.st}</div>
-                      <div className="font-mono text-lg text-foreground">{p.t}</div>
-                    </div>
-                  </div>
-                ))}
-              </div>
-              <div className="border-t border-border bg-background/40 px-4 py-2 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-                fila atual · 4 pessoas · tempo médio 02:16
-              </div>
-            </div>
-          </div>
-        </div>
-      </section>
-
-      {/* CONTEXTO */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="grid gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-4">
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">01 · briefing</div>
-              <h2 className="mt-3 font-display text-3xl font-semibold leading-tight">O relato dos prédios</h2>
-            </div>
-            <div className="lg:col-span-8">
-              <blockquote className="border-l-2 border-primary pl-6 font-display text-2xl font-medium leading-snug text-foreground">
-                “Alguns prédios comerciais relatam que estão com problemas para gerenciar o acesso
-                de pessoas aos seus locais físicos. Eles não repassaram muitos detalhes a respeito
-                do que exatamente está dificultando.”
-              </blockquote>
-              <p className="mt-6 text-muted-foreground">
-                Um brief vago não é um beco — é um convite para investigar. Em vez de saltar para
-                catracas, biometria ou apps de visitante, começamos pelo que ninguém mediu: o que
-                acontece nos 4 minutos entre o visitante cruzar a porta e ser liberado.
+            <div>
+              <h1 className="font-display text-lg font-bold leading-none text-white">PULITA</h1>
+              <p className="font-mono text-[10px] uppercase tracking-widest text-white/40">
+                lixo certo, dia certo
               </p>
             </div>
           </div>
+          <button
+            onClick={toggleReminder}
+            aria-label={reminder ? "Desativar lembrete" : "Ativar lembrete"}
+            className={`flex h-9 items-center gap-1.5 rounded-full border px-3 text-xs font-medium transition ${
+              reminder
+                ? "border-[#2F9E5E] bg-[#2F9E5E]/15 text-[#7BD8A4]"
+                : "border-white/10 bg-white/5 text-white/70"
+            }`}
+          >
+            <Bell className="h-3.5 w-3.5" />
+            {reminder ? "Ativo" : "Lembrar"}
+          </button>
         </div>
-      </section>
+      </header>
 
-      {/* MÉTRICAS DE CAMPO */}
-      <section className="border-b border-border bg-surface/30">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">02 · campo</div>
-          <h2 className="mt-3 max-w-2xl font-display text-3xl font-semibold leading-tight">
-            O que medimos em 3 portarias durante uma semana
-          </h2>
-          <div className="mt-10 grid gap-px bg-border md:grid-cols-4">
-            {research.map((r) => (
-              <div key={r.label} className="bg-background p-6">
-                <div className="font-mono text-[10px] uppercase tracking-widest text-muted-foreground">{r.label}</div>
-                <div className="mt-3 font-display text-4xl font-bold text-primary">{r.value}</div>
-                <div className="mt-2 font-mono text-[10px] uppercase tracking-wider text-muted-foreground">{r.note}</div>
+      <main className="mx-auto max-w-md px-5 pt-6">
+        {/* HOJE */}
+        <section aria-labelledby="hoje">
+          <div className="mb-2 flex items-baseline justify-between">
+            <h2 id="hoje" className="font-mono text-[11px] uppercase tracking-[0.25em] text-white/40">
+              Hoje · {today.long}
+            </h2>
+            <span className="font-mono text-[11px] text-white/40">
+              {now.toLocaleDateString("pt-PT", { day: "2-digit", month: "short" })}
+            </span>
+          </div>
+
+          <article
+            className="relative overflow-hidden rounded-3xl p-6 shadow-2xl"
+            style={{
+              background: `linear-gradient(160deg, ${today.color} 0%, color-mix(in oklab, ${today.color} 70%, black) 100%)`,
+              color: today.ink === "light" ? "white" : "#111",
+            }}
+          >
+            <div className="absolute -right-8 -top-8 h-40 w-40 rounded-full opacity-20" style={{ background: "white" }} />
+            <div className="relative">
+              <div className="mb-4 inline-flex items-center gap-2 rounded-full bg-black/15 px-3 py-1 text-xs font-semibold backdrop-blur">
+                {today.fractions.length > 0 ? (
+                  <>
+                    <span className="h-1.5 w-1.5 animate-pulse rounded-full bg-white" /> Coloque hoje
+                  </>
+                ) : (
+                  <>
+                    <CalendarOff className="h-3.5 w-3.5" /> Sem recolha
+                  </>
+                )}
               </div>
-            ))}
-          </div>
-        </div>
-      </section>
 
-      {/* HIPÓTESES */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="flex items-end justify-between gap-6">
-            <div>
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">03 · hipóteses</div>
-              <h2 className="mt-3 font-display text-3xl font-semibold leading-tight">Quatro frentes para investigar</h2>
-            </div>
-            <div className="hidden font-mono text-[10px] uppercase tracking-widest text-muted-foreground md:block">priorizado por frequência + impacto</div>
-          </div>
+              {today.fractions.length === 0 ? (
+                <div>
+                  <h3 className="font-display text-3xl font-bold leading-tight">
+                    Hoje o camião não passa.
+                  </h3>
+                  <p className="mt-2 text-sm opacity-90">
+                    Guarde o lixo em casa até ao próximo dia de recolha.
+                  </p>
+                </div>
+              ) : (
+                <div>
+                  <h3 className="font-display text-3xl font-bold leading-tight">
+                    {today.fractions.map((f) => f.label).join(" + ")}
+                  </h3>
+                  <p className="mt-2 text-sm opacity-90">Saco fora até às 22:00.</p>
 
-          <div className="mt-10 grid gap-px bg-border md:grid-cols-2">
-            {hypotheses.map((h) => (
-              <article key={h.code} className="group bg-background p-8 transition-colors hover:bg-surface">
-                <div className="flex items-center justify-between">
-                  <div className="font-mono text-xs font-semibold text-primary">{h.code}</div>
-                  <div className={`font-mono text-[10px] uppercase tracking-widest ${h.signal === "alto" ? "text-primary" : "text-muted-foreground"}`}>
-                    sinal · {h.signal}
+                  <div className="mt-5 grid grid-cols-2 gap-2">
+                    {today.fractions.map((f) => {
+                      const Icon = f.icon;
+                      return (
+                        <div
+                          key={f.label}
+                          className="flex items-center gap-2 rounded-xl bg-black/20 px-3 py-2.5 text-sm font-semibold backdrop-blur"
+                        >
+                          <Icon className="h-4 w-4" />
+                          {f.label}
+                        </div>
+                      );
+                    })}
                   </div>
                 </div>
-                <h3 className="mt-4 font-display text-xl font-semibold">{h.title}</h3>
-                <p className="mt-3 text-sm text-muted-foreground">{h.body}</p>
-              </article>
-            ))}
-          </div>
-        </div>
-      </section>
+              )}
+            </div>
+          </article>
 
-      {/* SOLUÇÃO PROPOSTA */}
-      <section className="border-b border-border bg-surface/20">
-        <div className="mx-auto max-w-7xl px-6 py-20">
-          <div className="grid gap-12 lg:grid-cols-12">
-            <div className="lg:col-span-5">
-              <div className="font-mono text-[10px] uppercase tracking-[0.3em] text-primary">04 · proposta</div>
-              <h2 className="mt-3 font-display text-4xl font-semibold leading-tight">
-                Tira o gargalo do balcão. Coloca no bolso do morador.
-              </h2>
-              <p className="mt-6 text-muted-foreground">
-                A portaria deixa de ser ponto de cadastro e vira ponto de verificação. Quem autoriza
-                a visita é quem a recebe — não o recepcionista. Quem chega já tem QR code. Quem
-                não tem entra por um fluxo express de 4 campos.
+          {/* Amanhã */}
+          <div className="mt-3 flex items-center gap-3 rounded-2xl border border-white/5 bg-white/[0.03] p-3">
+            <div
+              className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl font-mono text-[11px] font-bold"
+              style={{
+                background: tomorrow.color,
+                color: tomorrow.ink === "light" ? "white" : "#111",
+              }}
+            >
+              {tomorrow.short}
+            </div>
+            <div className="min-w-0 flex-1">
+              <p className="text-[11px] uppercase tracking-wider text-white/40">Amanhã</p>
+              <p className="truncate text-sm font-medium text-white">
+                {tomorrow.fractions.length === 0
+                  ? "Não passa o camião"
+                  : tomorrow.fractions.map((f) => f.label).join(" + ")}
               </p>
-              <Link to="/portaria" className="mt-8 inline-flex items-center gap-3 border border-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-widest text-primary hover:bg-primary hover:text-primary-foreground">
-                Ver protótipo funcionando →
-              </Link>
-            </div>
-            <div className="lg:col-span-7">
-              <ol className="space-y-px bg-border">
-                {[
-                  ["Morador pré-cadastra", "Em 20 segundos pelo celular. Visitante recebe QR por e-mail ou WhatsApp."],
-                  ["Visitante chega", "Aproxima QR do leitor ou da câmera do tablet de recepção."],
-                  ["Portaria confirma", "Foto + documento conferidos em 1 tela. Libera com 1 toque."],
-                  ["Acesso registrado", "Log imutável com horário, autorizador e destino. Auditável."],
-                ].map(([title, body], i) => (
-                  <li key={i} className="flex gap-6 bg-background p-6">
-                    <div className="font-mono text-3xl font-bold text-primary/40">0{i + 1}</div>
-                    <div>
-                      <div className="font-display text-lg font-semibold">{title}</div>
-                      <div className="mt-1 text-sm text-muted-foreground">{body}</div>
-                    </div>
-                  </li>
-                ))}
-              </ol>
             </div>
           </div>
-        </div>
-      </section>
+        </section>
 
-      {/* CTA */}
-      <section className="border-b border-border">
-        <div className="mx-auto max-w-7xl px-6 py-16">
-          <div className="stripe-warn h-1 w-full opacity-30" />
-          <div className="mt-10 grid items-center gap-8 md:grid-cols-2">
-            <h3 className="font-display text-3xl font-semibold leading-tight">
-              Sua portaria tem dor parecida?<br />
-              <span className="text-muted-foreground">Conte em 2 minutos.</span>
-            </h3>
-            <div className="flex flex-wrap gap-3 md:justify-end">
-              <Link to="/pesquisa" className="inline-flex items-center gap-3 bg-primary px-5 py-3 font-mono text-xs font-semibold uppercase tracking-widest text-primary-foreground hover:bg-primary/90">
-                Responder pesquisa
-              </Link>
-              <Link to="/portaria" className="inline-flex items-center gap-3 border border-border bg-surface px-5 py-3 font-mono text-xs font-semibold uppercase tracking-widest text-foreground hover:border-primary hover:text-primary">
-                Abrir protótipo
-              </Link>
+        {/* SEMANA */}
+        <section className="mt-8" aria-labelledby="semana">
+          <h2 id="semana" className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-white/40">
+            Calendário semanal
+          </h2>
+          <ul className="space-y-2">
+            {SCHEDULE.map((d, i) => {
+              const isToday = i === idx;
+              return (
+                <li
+                  key={d.key}
+                  className={`flex items-center gap-3 rounded-2xl border p-3 transition ${
+                    isToday
+                      ? "border-white/20 bg-white/[0.06]"
+                      : "border-white/5 bg-white/[0.02]"
+                  }`}
+                >
+                  <div
+                    className="flex h-12 w-12 shrink-0 flex-col items-center justify-center rounded-xl font-mono text-[10px] font-bold leading-none"
+                    style={{
+                      background: d.color,
+                      color: d.ink === "light" ? "white" : "#111",
+                    }}
+                  >
+                    <span className="text-[10px] opacity-80">{d.short}</span>
+                  </div>
+                  <div className="min-w-0 flex-1">
+                    <p className="flex items-center gap-2 text-sm font-semibold text-white">
+                      {d.long}
+                      {isToday && (
+                        <span className="rounded-full bg-white/10 px-1.5 py-0.5 font-mono text-[9px] uppercase tracking-wider text-white/80">
+                          hoje
+                        </span>
+                      )}
+                    </p>
+                    <p className="truncate text-xs text-white/60">
+                      {d.fractions.length === 0
+                        ? d.note ?? "—"
+                        : d.fractions.map((f) => f.label).join(" · ")}
+                    </p>
+                  </div>
+                  {d.fractions.length === 0 ? (
+                    <CalendarOff className="h-4 w-4 text-white/30" />
+                  ) : (
+                    <Check className="h-4 w-4 text-white/30" />
+                  )}
+                </li>
+              );
+            })}
+          </ul>
+
+          <p className="mt-3 flex items-start gap-2 rounded-xl bg-white/[0.03] p-3 text-[11px] leading-relaxed text-white/50">
+            <Info className="mt-0.5 h-3.5 w-3.5 shrink-0" />
+            Aos domingos e feriados o camião do lixo não faz recolha.
+          </p>
+        </section>
+
+        {/* MULTA */}
+        <section className="mt-8" aria-labelledby="multa">
+          <h2 id="multa" className="mb-3 font-mono text-[11px] uppercase tracking-[0.25em] text-white/40">
+            Atenção
+          </h2>
+          <article
+            className="overflow-hidden rounded-2xl border p-5"
+            style={{
+              borderColor: "rgba(232, 132, 60, 0.4)",
+              background:
+                "linear-gradient(160deg, rgba(232,132,60,0.18), rgba(232,132,60,0.04))",
+            }}
+          >
+            <div className="flex items-start gap-3">
+              <div className="flex h-10 w-10 shrink-0 items-center justify-center rounded-xl bg-[#E8843C] text-white">
+                <AlertTriangle className="h-5 w-5" />
+              </div>
+              <div>
+                <h3 className="font-display text-lg font-bold text-white">
+                  Lixo errado = multa
+                </h3>
+                <p className="mt-1 text-sm leading-relaxed text-white/70">
+                  Colocar o tipo de resíduo errado no dia errado, ou fora do horário, pode
+                  resultar numa <strong className="text-white">coima</strong> aplicada
+                  pela fiscalização municipal.
+                </p>
+
+                <div className="mt-4 space-y-2">
+                  <Rule>Verifique a cor do dia antes de descer com o saco.</Rule>
+                  <Rule>Separe orgânico, plástico, vidro e papel em sacos diferentes.</Rule>
+                  <Rule>Coloque o lixo entre as 20:00 e as 22:00.</Rule>
+                </div>
+              </div>
             </div>
-          </div>
-        </div>
-      </section>
+          </article>
+        </section>
 
-      <footer className="border-t border-border">
-        <div className="mx-auto flex max-w-7xl items-center justify-between px-6 py-6 font-mono text-[10px] uppercase tracking-widest text-muted-foreground">
-          <span>Portão · discovery 2026</span>
-          <span>perímetro monitorado · uso interno</span>
-        </div>
-      </footer>
+        <footer className="mt-10 pb-6 text-center">
+          <p className="font-mono text-[10px] uppercase tracking-widest text-white/30">
+            PULITA · cidade limpa começa em casa
+          </p>
+        </footer>
+      </main>
+    </div>
+  );
+}
+
+function Rule({ children }: { children: React.ReactNode }) {
+  return (
+    <div className="flex items-start gap-2 text-xs text-white/80">
+      <span className="mt-1 h-1 w-1 shrink-0 rounded-full bg-[#E8843C]" />
+      <span>{children}</span>
     </div>
   );
 }

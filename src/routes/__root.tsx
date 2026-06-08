@@ -54,8 +54,8 @@ export const Route = createRootRouteWithContext<{ queryClient: QueryClient }>()(
     meta: [
       { charSet: "utf-8" },
       { name: "viewport", content: "width=device-width, initial-scale=1" },
-      { title: "PULITA — Calendário da recolha de lixo" },
-      { name: "description", content: "PULITA: saiba todos os dias que tipo de lixo colocar fora. Lembretes simples e cores por dia da semana." },
+      { title: "Portão — Controle de acesso para prédios comerciais" },
+      { name: "description", content: "Acabe com a fila na portaria. Pré-cadastro, QR code e check-in em 4 segundos para prédios comerciais." },
     ],
     links: [
       { rel: "stylesheet", href: appCss },

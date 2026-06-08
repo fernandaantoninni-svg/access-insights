@@ -1,4 +1,5 @@
 # Portão — Controle de acesso para prédios comerciais
+- Site para visualizar https://visitor-vite.lovable.app
 
 > Caso de discovery UX + protótipo funcional de uma solução para a dor
 > **"prédios comerciais com dificuldade de gerenciar o acesso de pessoas
